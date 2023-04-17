@@ -40,7 +40,7 @@ yarn add vite-plugin-cos-upload -D
 ```ts
 // vite.config.ts
 
-import qiniuPlugin from '@ryan-liu/vite-plugin-qiniu-cdn-upload'
+import cosPlugin from 'vite-plugin-cos-upload'
 import pkg from './package.json'
 
 // config or .env
