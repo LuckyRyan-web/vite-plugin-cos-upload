@@ -1,6 +1,6 @@
 {
     "name": "vite-plugin-cos-upload",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "基于 vite 的打包文件上传到腾讯云 cos 的插件",
     "author": "ryan-liu",
     "main": "dist/index.js",
