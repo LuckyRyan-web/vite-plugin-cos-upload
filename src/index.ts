@@ -1,5 +1,5 @@
 import COS from 'cos-nodejs-sdk-v5'
-import type { SliceUploadFileParams } from 'cos-nodejs-sdk-v5'
+import type { SliceUploadFileParams, SliceCopyFileResult, CosError, PutObjectResult } from 'cos-nodejs-sdk-v5'
 import globby from 'globby'
 import type { PluginOption } from 'vite'
 import _ from 'lodash'
@@ -31,7 +31,7 @@ function print(isPrint: boolean) {
     }
 }
 
-export default function cosPlugin(options: Options): PluginOption {
+export default function cosPlugin(options: Options, onSucc?: (res: PutObjectResult | SliceCopyFileResult[]) => void, onFail?: (err: CosError) => {}): PluginOption {
     const {
         SecretId,
         SecretKey,
@@ -58,14 +58,17 @@ export default function cosPlugin(options: Options): PluginOption {
             logger('开始进行 cos 文件上传')
             const files = await globby([`${distDir}/**/*`])
             const chunkedFiles = _.chunk(files, concurrent)
-            await Promise.all(
+            const res = await Promise.all(
+                // 文件组分片 [file1, file2, file3]
                 chunkedFiles.map((chunk) => {
-                    return new Promise((resolve, reject) => {
-                        const promises = chunk.map((file) => {
-                            if (exclude.test(file)) {
+                    return new Promise<PutObjectResult | SliceCopyFileResult[]>((resolve, reject) => {
+                        const promises = chunk.filter(file => {
+                            const isExcluded = exclude.test(file)
+                            if (isExcluded) {
                                 logger(`文件被排除${file}`)
-                                return Promise.resolve()
                             }
+                            return !isExcluded
+                        }) .map<Promise<PutObjectResult | SliceCopyFileResult>>((file) => {
                             const dirPath = file.replace('dist/', '')
                             let preStr = prefix || 'upcos-prefix/'
 
@@ -121,17 +124,21 @@ export default function cosPlugin(options: Options): PluginOption {
                                     )
                                 })
                             }
+   
                         })
-                        Promise.all(promises)
+                        return Promise.all(promises)
                             .then((res) => {
                                 resolve(res)
                             })
                             .catch((err) => {
-                                reject(err)
+                                reject(err as CosError)
                             })
                     })
                 })
-            )
+            ).catch(err => {
+                onFail && onFail(err)
+            })
+            res && onSucc && onSucc(res.flat(1))
         },
     }
 }
